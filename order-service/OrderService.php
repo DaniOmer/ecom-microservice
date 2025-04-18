@@ -24,11 +24,84 @@ function getProduct($id) {
     return $product;
 }
 
+function checkInventory($productId, $quantity = 1) {
+    $url = "http://inventory-service:8000/inventory/$productId";
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    
+    if ($response === false) {
+        error_log("Error checking inventory: " . curl_error($ch));
+        curl_close($ch);
+        return false;
+    }
+    
+    curl_close($ch);
+    $inventory = json_decode($response, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Error decoding JSON response from inventory service: " . json_last_error_msg());
+        return false;
+    }
+    
+    // Check if there's enough inventory available
+    if (!isset($inventory['quantity_available']) || $inventory['quantity_available'] < $quantity) {
+        return false;
+    }
+    
+    return true;
+}
+
+function reserveInventory($productId, $quantity = 1) {
+    $url = "http://inventory-service:8000/inventory/reserve";
+    $data = json_encode([
+        'product_uid' => $productId,
+        'amount' => $quantity
+    ]);
+    
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($data)
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if ($response === false || $httpCode >= 400) {
+        error_log("Error reserving inventory: " . curl_error($ch) . " HTTP code: " . $httpCode);
+        curl_close($ch);
+        return false;
+    }
+    
+    curl_close($ch);
+    return true;
+}
+
 function createOrder(array $productIds) {
     $db = Database::getInstance()->getConnection();
     
     try {
         $db->beginTransaction();
+        
+        // Check inventory availability for all products
+        $unavailableProducts = [];
+        foreach ($productIds as $pid) {
+            if (!checkInventory($pid)) {
+                $unavailableProducts[] = $pid;
+            }
+        }
+        
+        // If any product is unavailable, return error
+        if (!empty($unavailableProducts)) {
+            return [
+                "error" => "Insufficient inventory",
+                "unavailable_products" => $unavailableProducts
+            ];
+        }
         
         // Create order with UUID
         $stmt = $db->prepare("INSERT INTO orders (total) VALUES (0) RETURNING id");
@@ -38,10 +111,19 @@ function createOrder(array $productIds) {
         $total = 0;
         $orderItems = [];
         
-        // Add products to order
+        // Add products to order and reserve inventory
         foreach ($productIds as $pid) {
             $product = getProduct($pid);
             if ($product && isset($product["price"])) {
+                // Reserve inventory for this product
+                if (!reserveInventory($pid)) {
+                    // If reservation fails, rollback transaction
+                    $db->rollBack();
+                    return [
+                        "error" => "Failed to reserve inventory for product: " . $pid
+                    ];
+                }
+                
                 $stmt = $db->prepare("
                     INSERT INTO order_items (order_id, product_id, product_name, price)
                     VALUES (?, ?, ?, ?)
