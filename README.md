@@ -298,7 +298,13 @@ Vous pouvez accéder à l'interface Adminer pour gérer la base de données Post
 
 #### MongoDB (Service de catalogue)
 
-MongoDB est accessible sur le port 27017. Vous pouvez utiliser MongoDB Compass ou un autre outil pour vous y connecter:
+Vous pouvez accéder à l'interface Mongo Express pour gérer la base de données MongoDB:
+1. Ouvrez votre navigateur et accédez à `http://localhost:8084`
+2. Connectez-vous avec les informations suivantes:
+   - Utilisateur: admin
+   - Mot de passe: admin123
+
+Vous pouvez également accéder directement à MongoDB sur le port 27017 si vous préférez utiliser MongoDB Compass ou un autre outil:
 - URI de connexion: `mongodb://localhost:27017/catalogue_db`
 
 ### Arrêter les services

@@ -53,6 +53,7 @@ services:
       - POSTGRES_USER=orders_user
       - POSTGRES_PASSWORD=orders_password
     volumes:
+      - postgres_data:/var/lib/postgresql/data
       - ./order-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
     healthcheck:
@@ -84,6 +85,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  mongo-express:
+    image: mongo-express
+    ports:
+      - "8084:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    depends_on:
+      - mongodb
+    restart: unless-stopped
 
 volumes:
   postgres_data:
