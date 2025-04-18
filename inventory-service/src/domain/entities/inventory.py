@@ -7,11 +7,15 @@ class Inventory:
         product_uid: str,
         quantity_available: int,
         reserved_quantity: int = 0,
+        created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None,
+        id: Optional[int] = None,
     ):
+        self.id = id
         self.product_uid = product_uid
         self.quantity_available = quantity_available
         self.reserved_quantity = reserved_quantity
+        self.created_at = created_at or datetime.now(timezone.utc)
         self.updated_at = updated_at or datetime.now(timezone.utc)
 
     def reserve(self, amount: int):
