@@ -12,7 +12,8 @@ from src.infrastructure.schemas import (
 )
 
 router = APIRouter(prefix="/inventory")
-db_instance = DatabaseFactory.create_strategy('sqlalchemy').get_session
+# Use the retry mechanism for database connections
+db_instance = DatabaseFactory.create_strategy('sqlalchemy').get_session_with_retry
 
 @router.post("/", status_code=201)
 async def create_inventory(
