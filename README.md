@@ -144,7 +144,7 @@ curl -X POST http://localhost:8082/orders \
 Exemple de réponse:
 ```json
 {
-  "id": 1,
+  "id": "123e4567-e89b-12d3-a456-426614174000",
   "created_at": "2025-04-18 12:57:17.047848",
   "total": "69.98",
   "products": [
@@ -162,9 +162,14 @@ Exemple de réponse:
 }
 ```
 
-Récupérer une commande par ID:
+Récupérer une commande par UUID:
 ```bash
-curl http://localhost:8082/orders/1
+curl http://localhost:8082/orders/123e4567-e89b-12d3-a456-426614174000
+```
+
+Récupérer toutes les commandes:
+```bash
+curl http://localhost:8082/orders
 ```
 
 ### Intégration entre les services

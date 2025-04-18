@@ -116,7 +116,8 @@ async function checkServicesRunning() {
   }
   
   try {
-    await makeRequest(`${ORDER_URL}/orders/1`);
+    // Check if the orders endpoint is available instead of a specific order
+    await makeRequest(`${ORDER_URL}/orders`);
     checkResult('Order service is running', true);
   } catch (error) {
     checkResult('Order service is running', false, true);
@@ -248,12 +249,14 @@ async function testOrderService() {
     const response = await makeRequest(`${ORDER_URL}/orders`, 'POST', singleOrderData);
     console.log(JSON.stringify(response.data, null, 2));
     
-    const success = response.statusCode === 200 && response.data.id;
+    // Check for UUID in the response
+    const success = response.statusCode === 200 && response.data.id && 
+                   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(response.data.id);
     checkResult('Create order with single product', success);
     
     if (success) {
       singleOrderId = response.data.id;
-      console.log(`Created order with ID: ${singleOrderId}`);
+      console.log(`Created order with UUID: ${singleOrderId}`);
       
       // Check if the total price is correct
       console.log('Checking total price...');
@@ -275,12 +278,14 @@ async function testOrderService() {
       const response = await makeRequest(`${ORDER_URL}/orders`, 'POST', multiOrderData);
       console.log(JSON.stringify(response.data, null, 2));
       
-      const success = response.statusCode === 200 && response.data.id;
+      // Check for UUID in the response
+      const success = response.statusCode === 200 && response.data.id && 
+                     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(response.data.id);
       checkResult('Create order with multiple products', success);
       
       if (success) {
         multiOrderId = response.data.id;
-        console.log(`Created order with ID: ${multiOrderId}`);
+        console.log(`Created order with UUID: ${multiOrderId}`);
         
         // Get the order by ID
         console.log('Getting order by ID...');

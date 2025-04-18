@@ -30,7 +30,7 @@ function createOrder(array $productIds) {
     try {
         $db->beginTransaction();
         
-        // Create order
+        // Create order with UUID
         $stmt = $db->prepare("INSERT INTO orders (total) VALUES (0) RETURNING id");
         $stmt->execute();
         $orderId = $stmt->fetchColumn();
@@ -97,4 +97,33 @@ function getOrder($id) {
     
     $order["products"] = $items;
     return $order;
+}
+
+/**
+ * Get all orders
+ */
+function getAllOrders() {
+    $db = Database::getInstance()->getConnection();
+    
+    // Get all orders
+    $stmt = $db->prepare("
+        SELECT id, created_at, total
+        FROM orders
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute();
+    $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get items for each order
+    foreach ($orders as &$order) {
+        $stmt = $db->prepare("
+            SELECT product_id, product_name, price
+            FROM order_items
+            WHERE order_id = ?
+        ");
+        $stmt->execute([$order['id']]);
+        $order['products'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    return $orders;
 }

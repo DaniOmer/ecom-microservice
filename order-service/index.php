@@ -7,10 +7,15 @@ $method = $_SERVER['REQUEST_METHOD'];
 header('Content-Type: application/json');
 
 if ($uri === '/orders' && $method === 'POST') {
+    // Create a new order
     $data = json_decode(file_get_contents('php://input'), true);
     $productIds = $data['productIds'] ?? [];
     echo json_encode(createOrder($productIds));
-} elseif (preg_match('#^/orders/(\d+)$#', $uri, $matches) && $method === 'GET') {
+} elseif ($uri === '/orders' && $method === 'GET') {
+    // Get all orders
+    echo json_encode(getAllOrders());
+} elseif (preg_match('#^/orders/([a-f0-9\-]+)$#i', $uri, $matches) && $method === 'GET') {
+    // Get a specific order by UUID
     $id = $matches[1];
     echo json_encode(getOrder($id));
 } else {
