@@ -1,25 +1,66 @@
 services:
-  # Real catalog service with Node.js and MongoDB
-  catalog-service:
+  # inventory service
+  inventory-service:
     build:
-      context: ./catalogue-service
+      context: inventory-service
+      dockerfile: Dockerfile
     ports:
-      - "8081:3000"
+      - "8000:8000"
     volumes:
-      - ./catalogue-service:/app
-      - /app/node_modules
-    depends_on:
-      - mongodb
+      - inventory-service:/app
     environment:
-      - PORT=3000
-      - MONGO_URI=mongodb://mongodb:27017/catalogue_db
-    restart: unless-stopped
+      - POSTGRES_URL=postgresql+asyncpg://inventory:inventory@inventory-db:5432/inventory
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+    networks:
+      - inventory-network
+
+  # inventory service database
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+      POSTGRES_DB: inventory
+    ports:
+      - "5434:5432"
+    networks:
+      - inventory-network
+    volumes:
+      - inventory-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/products"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      test: ["CMD-SHELL", "pg_isready -U inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  catalogue-mongo:
+    image: mongo:latest
+    container_name: mongo_catalogue
+    ports:
+      - "27017:27017" # MongoDB exposé en local
+    environment:
+      MONGO_INITDB_DATABASE: catalogue_db # BDD appelée "catalogue_db"
+    volumes:
+      - catalogue-mongo_data:/data/db
+    networks:
+      - inventory-network
+
+  catalogue-api:
+    build:
+      context: catalogue-service
+      dockerfile: Dockerfile
+    container_name: catalogue_api
+    ports:
+      - "8081:8081" # Expose Express en local
+    environment:
+      - MONGO_URL=mongodb://catalogue-mongo:27017/catalogue_db # URL Mongo pour ton app
+    depends_on:
+      - catalogue-mongo # Lance Express après Mongo
+    networks:
+      - inventory-network
 
   order-service:
     build:
@@ -43,6 +84,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - inventory-network
 
   postgres:
     image: postgres:15-alpine
@@ -62,44 +105,25 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - inventory-network
 
+  # Adminer
   adminer:
-    image: adminer
+    image: adminer:latest
     ports:
-      - "8083:8080"
-    depends_on:
-      - postgres
-    restart: unless-stopped
-
-  mongodb:
-    image: mongo:6-jammy
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-      - ./catalogue-service/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  mongo-express:
-    image: mongo-express
-    ports:
-      - "8084:8081"
+      - "8080:8080"
     environment:
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
-    depends_on:
-      - mongodb
-    restart: unless-stopped
+      - ADMINER_DEFAULT_SERVER=inventory-db
+    networks:
+      - inventory-network
 
 volumes:
+  inventory-db:
+  inventory-service:
+  catalogue-mongo_data:
   postgres_data:
-  mongodb_data:
+
+networks:
+  inventory-network:
+    driver: bridge
