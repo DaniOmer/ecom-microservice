@@ -1,0 +1,38 @@
+services:
+  # inventory service
+  inventory-service:
+    build:
+      context: inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - inventory-service:/app
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL}
+    depends_on:
+      - inventory-db
+
+  # inventory service database
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+      POSTGRES_DB: inventory_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - inventory-db:/var/lib/postgresql/data
+
+  # Adminer
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=inventory-db
+
+volumes:
+  inventory-db:
+  inventory-service:
